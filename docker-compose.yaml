@@ -1,0 +1,28 @@
+services:
+  # The site that will never grow an index.md.
+  origin:
+    build: ./origin
+    environment:
+      ORIGIN_PORT: "8080"
+
+  # Fetches the origin's HTML, returns text/markdown. Stdlib only.
+  md-shim:
+    build: ./md-shim
+    depends_on:
+      - origin
+    environment:
+      SHIM_PORT: "8081"
+      ORIGIN_URL: http://origin:8080
+
+  # Decides which of the two a given client gets, based on Accept.
+  agentgateway:
+    image: cr.agentgateway.dev/agentgateway:v1.5.0
+    depends_on:
+      - origin
+      - md-shim
+    command: ["-f", "/config/agentgateway.yaml"]
+    volumes:
+      - ./config:/config:ro
+    ports:
+      - "3000:3000"    # negotiated traffic
+      - "15000:15000"  # admin

@@ -1,0 +1,59 @@
+# yaml-language-server: $schema=https://agentgateway.dev/schema/config
+#
+# Content negotiation for agents, decided at the gateway.
+#
+# The origin serves HTML and only HTML. Everything that makes this site
+# agent-readable lives in this file plus a 150-line shim. The origin is
+# not modified, not redeployed, and does not know any of this happened.
+#
+# Route order matters: agentgateway evaluates routes in the order they are
+# declared and takes the first match, so the markdown route has to come
+# before the catch-all. Swap them and every client gets HTML.
+
+config:
+  adminAddr: 0.0.0.0:15000
+
+binds:
+- port: 3000
+  listeners:
+  - name: negotiated
+    protocol: HTTP
+    routes:
+
+    # 1. The agent route. Matches any Accept that mentions markdown.
+    #
+    # This is a REGEX MATCH ON A HEADER, not RFC 9110 proactive negotiation.
+    # It does not read q-values and it does not rank media types. A client
+    # that sends `Accept: text/html, text/markdown;q=0.1` is saying it would
+    # much rather have HTML, and this route sends it markdown anyway.
+    # scenario 4 in ./scripts/demo.sh demonstrates that, and the README says
+    # what it costs.
+    - name: markdown-for-agents
+      matches:
+      - headers:
+        - name: accept
+          value:
+            regex: ".*text/markdown.*"
+      policies:
+        responseHeaderModifier:
+          set:
+            # Without this, the first response through any shared cache is
+            # the one every subsequent client gets, whatever they asked for.
+            Vary: "Accept"
+          add:
+            X-Content-Negotiated-By: "agentgateway"
+            X-Served-Variant: "markdown"
+      backends:
+      - host: md-shim:8081
+
+    # 2. Everything else, including `Accept: */*`, gets the site as it is.
+    - name: html-default
+      policies:
+        responseHeaderModifier:
+          set:
+            Vary: "Accept"
+          add:
+            X-Content-Negotiated-By: "agentgateway"
+            X-Served-Variant: "html"
+      backends:
+      - host: origin:8080
