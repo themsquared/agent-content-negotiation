@@ -1,5 +1,7 @@
 # agent-content-negotiation
 
+> 📖 **Read the write-up:** [Serve Markdown to Agents at the Gateway, Not the Origin](https://webofmike.com/markdown-for-agents-at-the-gateway/)
+
 **Serve markdown to agents at the gateway, without touching the origin.**
 
 Agents parse HTML badly and expensively. The usual answer is to make the site
